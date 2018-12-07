@@ -1,23 +1,21 @@
 #!/bin/bash
 
-rm -f firstcheck.txt secondcheck.txt ifelseout.txt ifelselastout.txt gperffirstcheck.txt gperfsecondcheck.txt gperfout.txt gperflastout.txt
+rm -f *.txt
 
+declare -a arr=("powersave" "performance" "userspace" "ondemand" "conservative" "schedutil" "random")
+
+gcc dataGenerator.c -o dataGenerator
 gcc ifelsecheck.c -o ifelsecheck
-gcc ifelsechecklast.c -o ifelsechecklast
 gcc -I ./ gperfcheck.c -o gperfcheck
-gcc -I ./ gperfchecklast.c -o gperfchecklast
 
-./ifelsecheck > ifelseout.txt
-./ifelsechecklast > ifelselastout.txt
-./gperfcheck > gperfout.txt
-./gperfchecklast > gperflastout.txt
+for i in "${arr[@]}"
+do
+	./dataGenerator $i > "$i.txt"
+	./ifelsecheck "$i.txt" > "outputifelse-$i.txt"
+	./gperfcheck "$i.txt" > "outputgperf-$i.txt"
+	cat outputifelse-$i.txt | awk '{ print $7 }' >> nstimeifelse-$i.txt
+	cat outputgperf-$i.txt | awk '{ print $7 }' >> nstimegperf-$i.txt
+	cat nstimeifelse-$i.txt | sort | awk -v governor=$i 'BEGIN { sum=0; num=0 } { sum += $1; num += 1 } END { printf"\nAvg of %.2f ns for %d runs for string %s in if else\n\n", sum/num, num, governor}'
+	cat nstimegperf-$i.txt | sort | awk -v governor=$i 'BEGIN { sum=0; num=0 } { sum += $1; num += 1 } END { printf"\nAvg of %.2f ns for %d runs for string %s in gperf\n\n", sum/num, num, governor}'
+done
 
-cat ifelseout.txt | awk '{ print $7 }' >> firstcheck.txt
-cat ifelselastout.txt | awk '{ print $7 }' >> secondcheck.txt
-cat gperfout.txt | awk '{ print $7 }' >> gperffirstcheck.txt
-cat gperflastout.txt | awk '{ print $7 }' >> gperfsecondcheck.txt
-
-cat firstcheck.txt | sort | awk 'BEGIN { sum=0; num=0 } { sum += $1; num += 1 } END { printf"\nAvg of %.2f ns for %d runs for string at start\n\n", sum/num, num }'
-cat secondcheck.txt | sort | awk 'BEGIN { sum=0; num=0 } { sum += $1; num += 1 } END { printf"\nAvg of %.2f ns for %d runs for string at end\n\n", sum/num, num }'
-cat gperffirstcheck.txt | sort | awk 'BEGIN { sum=0; num=0 } { sum += $1; num += 1 } END { printf"\nAvg of %.2f ns for %d runs for gperf string first\n\n", sum/num, num }'
-cat gperfsecondcheck.txt | sort | awk 'BEGIN { sum=0; num=0 } { sum += $1; num += 1 } END { printf"\nAvg of %.2f ns for %d runs for gperf string last\n\n", sum/num, num }'
